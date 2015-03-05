@@ -19,6 +19,7 @@ if (cluster.isMaster){
     var app = express();
 
     app.set('port', process.env.PORT || config.port || 3000);
+    app.use(bodyParser({limit: '100mb'}));
     app.use(express.favicon());
     app.use(express.logger('dev'));
     app.use(express.methodOverride());
