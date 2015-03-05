@@ -19,7 +19,6 @@ if (cluster.isMaster){
     var app = express();
 
     app.set('port', process.env.PORT || config.port || 3000);
-    app.use(bodyParser({limit: '100mb'}));
     app.use(express.favicon());
     app.use(express.logger('dev'));
     app.use(express.methodOverride());
@@ -36,9 +35,9 @@ if (cluster.isMaster){
     app.get('/:packagename/:version', routes.get.version);
     app.get('/:packagename/-/:filename', routes.get.artifact);
 
-    app.put('/:packagename', [express.bodyParser()], routes.publish.meta);
+    app.put('/:packagename', [express.bodyParser({limit: '100mb'})], routes.publish.meta);
     app.put('/:packagename/-/:filename/-rev/:revision', routes.publish.artifact);
-    app.put('/:packagename/:version/-tag/latest', [express.bodyParser()], routes.publish.tag);
+    app.put('/:packagename/:version/-tag/latest', [express.bodyParser({limit: '100mb'})], routes.publish.tag);
 
     http.createServer(app).listen(app.get('port'), function(){
       console.log('Express server listening on port ' + app.get('port'));
