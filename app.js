@@ -10,7 +10,7 @@ cluster.on('exit', function(worker){
     cluster.fork();
 });
 
-if (false && cluster.isMaster){
+if (cluster.isMaster){
     var count = require('os').cpus().length;
     for (var i = 0; i < count; i++){
         cluster.fork();
