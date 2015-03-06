@@ -19,6 +19,7 @@
     "test": "./node_modules/.bin/mocha test --timeout 0"
   },
   "dependencies": {
+    "base64-stream": "^0.1.2",
     "express": "~3.4.0",
     "request": "~2.27.0"
   },

@@ -2,9 +2,11 @@ var http = require('http');
 var util = require('../lib/util'); 
 var request = require('request');
 var crypto = require('crypto');
+var base64 = require('base64-stream');
 
 // set the metadata file for package
 module.exports.meta = function(req, res){
+    var attachmentsRemaining;
     var artMetaPath = util.artMetaPath(req.params.packagename);
     request.get({uri: artMetaPath, json: true}, function(err, artRes, body){
         if (artRes.statusCode === 200){
@@ -27,17 +29,45 @@ module.exports.meta = function(req, res){
             // todo: how is the revision really calculated and how is it used?
             req.body['_rev'] = '1-' + crypto.createHash('md5').update(JSON.stringify(req.body)).digest('hex');
             req.body.time = {};
-            req.body['_attachments'] = {};
-            request.put({uri: artMetaPath, json: req.body}, function(err, artRes, body){
-                res.send(201, {ok: 'created new entry'});
-            });
+
+            // Now, send any attachments
+            attachmentsRemaining = Object.keys(req.body._attachments);
+            function sendAttachments() {
+                var encodedData, artFilePath, filename, decodingStream;
+                if (attachmentsRemaining.length === 0) {
+                    req.body['_attachments'] = {};
+                    request.put({uri: artMetaPath, json: req.body}, function(err, artRes, body){
+                        res.send(201, {ok: 'created new entry'});
+                    });
+                } else {
+                    filename = attachmentsRemaining.shift()
+                    artFilePath = util.artifactPath({name: req.params.packagename, version: filename.replace(req.params.packagename, '').replace('.tgz', '').substr(1), file: filename});
+                    encodedData = req.body._attachments[filename].data;
+                    decodingStream = base64.decode();
+                    decodingStream.end(encodedData);
+                    request.put({uri: artFilePath, binary: true, body: decodingStream.read()}, function (err, attachRes, body) {
+                        if (!err && attachRes.statusCode === 201) {
+                            sendAttachments();
+                        } else {
+                            if (err) {
+                                res.send(500, err.message);
+                                return;
+                            }
+                        }
+                    });
+
+                }
+
+            }
+            sendAttachments();
         }
     });
 }
 // actually perform the upload
 module.exports.artifact = function(req, res){
     var filename = req.params.filename;
-    var version = filename.replace(req.params.packagename, '').replace('.tgz', '').substr(1); 
+    var version = filename.replace(req.params.packagename, '').replace('.tgz', '').substr(1);
+    console.log("DEBUG: artifact publish called - filename is " + filename + " and version is " + version);
     request.get({uri: util.artMetaPath(req.params.packagename), json: true}, function(err, artRes, body){
         if (artRes.statusCode !== 200){
             res.send(500);
@@ -55,6 +85,7 @@ module.exports.artifact = function(req, res){
                 version: version,
                 file: req.params.filename
             });
+            console.log("DEBUG: Buffer is " + buffer.length + " long");
             // upload the actual tarball
             request.put({uri: artifactPath, body: buffer}, function(err, artRes){
                 body.time[version] = new Date().toISOString();
